@@ -18,12 +18,16 @@ pub use veilid_duplex;
 // Resources
 // ------
 
-#[derive(Resource, Deref, DerefMut, Default)]
-pub struct VeilidApp(pub Option<VeilidDuplex>);
+#[derive(Resource, Default)]
+pub struct VeilidApp {
+    pub app: Option<VeilidDuplex>,
+    pub other_peer_dht: Option<CryptoTyped<CryptoKey>>,
+}
 
-#[derive(Resource, PartialEq, Eq)]
+#[derive(Resource, PartialEq, Eq, Clone, Copy)]
 pub enum VeilidPluginStatus {
     Initializing,
+    Initialized,
     ConnectedPeer,
     AwaitingPeer,
     Error,
@@ -34,7 +38,7 @@ pub enum VeilidPluginStatus {
 // ------
 
 #[derive(Event)]
-pub struct VeilidInitializedEvent;
+pub struct EventVeilidInitialized;
 
 #[derive(Event)]
 pub struct EventSendMessage<T> {
@@ -58,24 +62,25 @@ impl<T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + C
 #[derive(Event)]
 pub struct EventMessageSent {
     pub uuid: Uuid,
+    pub dht_key: CryptoTyped<CryptoKey>,
 }
 
 #[derive(Event)]
 pub struct EventReceiveMessage<T> {
     pub message: T,
+    pub dht_key: CryptoTyped<CryptoKey>,
 }
-
-#[derive(Event)]
-pub struct EventError;
 
 #[derive(Event)]
 pub struct EventAwaitingPeer;
 
 #[derive(Event)]
-pub struct EventConnectedPeer;
+pub struct EventConnectedPeer {
+    pub dht_key: CryptoTyped<CryptoKey>,
+}
 
 #[derive(Event)]
-pub struct EventVeilidError(pub Error);
+pub struct EventError(pub Error);
 
 // ---
 // Systems
@@ -84,9 +89,11 @@ pub struct EventVeilidError(pub Error);
 fn on_ev_connected_peer(
     mut reader: EventReader<EventConnectedPeer>,
     mut veilid_plugin_status: ResMut<VeilidPluginStatus>,
+    mut veilid_app: ResMut<VeilidApp>,
 ) {
-    for _ in reader.iter() {
+    for e in reader.iter() {
         *veilid_plugin_status = VeilidPluginStatus::ConnectedPeer;
+        veilid_app.other_peer_dht = Some(e.dht_key);
     }
 }
 
@@ -100,7 +107,7 @@ fn on_ev_awaiting_peer(
 }
 
 fn on_ev_error(
-    mut er_veilid_error: EventReader<EventVeilidError>,
+    mut er_veilid_error: EventReader<EventError>,
     mut veilid_plugin_status: ResMut<VeilidPluginStatus>,
 ) {
     for _ in er_veilid_error.iter() {
@@ -114,8 +121,8 @@ fn on_ev_veilid_message_sent(
     veilid_plugin_status: Res<VeilidPluginStatus>,
 ) {
     if *veilid_plugin_status.into_inner() == VeilidPluginStatus::AwaitingPeer {
-        for _ in er_veilid_message.iter() {
-            ew_connected_peer.send(EventConnectedPeer);
+        for m in er_veilid_message.iter() {
+            ew_connected_peer.send(EventConnectedPeer { dht_key: m.dht_key });
         }
     }
 }
@@ -128,7 +135,7 @@ fn initialize_veilid_app(runtime: ResMut<TokioTasksRuntime>) {
         if result.is_err() {
             ctx.run_on_main_thread(move |ctx| {
                 let world = ctx.world;
-                world.send_event(EventError);
+                world.send_event(EventError(result.err().unwrap()));
             })
             .await;
             return;
@@ -138,8 +145,11 @@ fn initialize_veilid_app(runtime: ResMut<TokioTasksRuntime>) {
 
         ctx.run_on_main_thread(move |ctx| {
             let world = ctx.world;
-            world.insert_resource(VeilidApp(Some(app.clone())));
-            world.send_event(VeilidInitializedEvent);
+            world.insert_resource(VeilidApp {
+                app: Some(app.clone()),
+                other_peer_dht: None,
+            });
+            world.send_event(EventVeilidInitialized);
         })
         .await;
     });
@@ -149,11 +159,13 @@ fn event_on_veilid_initialized<
     T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + Clone + 'static,
 >(
     runtime: ResMut<TokioTasksRuntime>,
-    mut e_veilid_initialized: EventReader<VeilidInitializedEvent>,
+    mut veilid_plugin_status: ResMut<VeilidPluginStatus>,
+    mut e_veilid_initialized: EventReader<EventVeilidInitialized>,
     veilid_app: Res<VeilidApp>,
 ) {
     for _e in e_veilid_initialized.iter() {
-        let mut veilid_app = veilid_app.clone().unwrap();
+        *veilid_plugin_status = VeilidPluginStatus::Initialized;
+        let mut veilid_app = veilid_app.app.clone().unwrap();
         runtime.spawn_background_task(|mut ctx| async move {
             let on_app_message = async move |message: AppMessage<T>| {
                 let message = message.clone();
@@ -163,6 +175,7 @@ fn event_on_veilid_initialized<
 
                     world.send_event(EventReceiveMessage {
                         message: message.data,
+                        dht_key: message.dht_record,
                     });
                 })
                 .await;
@@ -176,15 +189,15 @@ fn on_ev_send_message<
     T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + Clone + 'static,
 >(
     mut er_send_message: EventReader<EventSendMessage<T>>,
-    // mut message_log: ResMut<VeilidDuplexMessageLog>,
+    mut ew_awaiting_peer: EventWriter<EventAwaitingPeer>,
     veilid_app: Res<VeilidApp>,
     runtime: ResMut<TokioTasksRuntime>,
 ) {
-    if veilid_app.is_none() {
+    if veilid_app.app.is_none() {
         return;
     }
 
-    let veilid_app = veilid_app.clone().unwrap();
+    let veilid_app = veilid_app.app.clone().unwrap();
     let origin_dht_key = veilid_app.our_dht_key;
 
     for e in er_send_message.iter() {
@@ -194,8 +207,12 @@ fn on_ev_send_message<
         let app_message: AppMessage<T> = AppMessage {
             data: e.message.clone(),
             dht_record: origin_dht_key,
+            uuid: "".to_string(),
         };
-        let message_uuid = e.uuid;
+        let uuid = e.uuid;
+        let dht_key = e.dht_key;
+
+        ew_awaiting_peer.send(EventAwaitingPeer);
 
         runtime.spawn_background_task(move |mut ctx| async move {
             let result = veilid_app
@@ -205,9 +222,9 @@ fn on_ev_send_message<
             ctx.run_on_main_thread(move |ctx| {
                 let world = ctx.world;
                 if result.is_err() {
-                    world.send_event(EventError {});
+                    world.send_event(EventError(result.err().unwrap()));
                 } else {
-                    world.send_event(EventMessageSent { uuid: message_uuid });
+                    world.send_event(EventMessageSent { uuid, dht_key });
                 }
             })
             .await;
@@ -228,6 +245,7 @@ impl<T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + C
     Plugin for VeilidPlugin<T>
 {
     fn build(&self, app: &mut App) {
+        app.add_plugins(bevy_tokio_tasks::TokioTasksPlugin::default());
         app.init_resource::<VeilidApp>();
         app.add_systems(Startup, initialize_veilid_app);
         app.add_systems(
@@ -243,11 +261,12 @@ impl<T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + C
                 on_ev_veilid_message_sent,
             ),
         );
-        app.add_event::<VeilidInitializedEvent>();
+        app.add_event::<EventConnectedPeer>();
         app.add_event::<EventError>();
+        app.add_event::<EventAwaitingPeer>();
+        app.add_event::<EventVeilidInitialized>();
         app.add_event::<EventReceiveMessage<T>>();
         app.add_event::<EventSendMessage<T>>();
         app.add_event::<EventMessageSent>();
-        // .insert_resource(VeilidDuplexMessageLog { uuids: Vec::new() });
     }
 }

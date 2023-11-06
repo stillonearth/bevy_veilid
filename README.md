@@ -1,99 +1,96 @@
-# Bevy GitHub CI Template
+# bevy_veilid
 
-This repo show how to set up CI on a GitHub project for Bevy.
+[![Crates.io](https://img.shields.io/crates/v/bevy_rl.svg)](https://crates.io/crates/bevy_veilid)
+[![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
+[![Crates.io](https://img.shields.io/crates/d/bevy_rl.svg)](https://crates.io/crates/bevy_veilid)
+[![Rust](https://github.com/stillonearth/bevy_rl/workflows/CI/badge.svg)](https://github.com/stillonearth/bevy_veilid/actions)
 
-It creates two workflows:
+## Build 2-Player turn-based p2p games with Bevy and Veilid
 
-* [CI](#CI)
-* [Release](#Release)
+This plugin makes it bearable to build p2p games with Bevy and Veilid by providing a sane API 
+for encrypted p2p messanging in Bevy context.
 
-## CI
+## Compatibility
 
-Definition: [.github/workflows/ci.yaml](./.github/workflows/ci.yaml)
+| bevy version | veilid version | bevy_veilid version |
+| ------------ | :-------------:| :-----------------: |
+| 0.11         |   0.2.4        | 0.1.0               |
 
-This workflow runs on every commit to `main` branch, and on every PR targeting the `main` branch.
+## 📝Features
 
-It will use rust stable on linux, with cache between different executions, those commands:
+- Event-Based: read and send event to communicate with other peer
+- Turn-Based: no tick synchronization
+- Anonymous: each run creates a new persona 
 
-* `cargo test`
-* `cargo clippy -- -D warnings`
-* `cargo fmt --all -- --check`
+## 👩‍💻 Usage
 
-If you are using anything OS specific or rust nightly, you should update the file [ci.yaml](./.github/workflows/ci.yaml) to use those.
+Refer to [examples/pingpong](examples/pingpong.rs) for basic example.
 
-## Release
+### 1. Define a message to send over network
 
-Definition: [.github/workflows/release.yaml](./.github/workflows/release.yaml)
-
-This workflow runs on every tag.
-
-It will build:
-* For Linux and Windows, a .zip archive containing the executable and the `assets`.
-* For macOS, a dmg image with a .app containing the assets.
-* For wasm, a .zip archive with the wasm binary, the js bindings, an html file loading it, and the assets.
-
-If you don't want to target some of those platforms, you can remove the corresponding job from the file [release.yaml](./.github/workflows/release.yaml).
-
-If you don't want to attach the builds to the GitHub release, set `env.add_binaries_to_github_release` to `false`.
-
-### Git Tag from GitHub UI
-
-You can follow [Managing releases in a repository](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)
-
-### Git Tag from the CLI
-
-Execute the following commands: 
-
-```sh
-git tag -a "my-game-1.0" -m "First official release"
-git push --tags
+```rust
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Resource)]
+struct SampleMessage {
+    pub counter: i32,
+    pub extra: String,
+}
 ```
 
-### Result
+### 2. Attach plugin to bevy
 
-A new release will be available in GitHub, with the archives per platform available as downloadable assets.
+```rust
+fn main() {
 
-The `git` commands above produced this release: [my-game-1.0](
-https://github.com/bevyengine/bevy_github_ci_template/releases/tag/my-game-1.0).
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(VeilidPlugin::<SampleMessage>::default())
+        .add_systems(
+            Update,
+            (
+                on_ev_veilid_initialized,
+                handle_ui_state,
+                on_host_game,
+                on_join_game,
+                on_ev_awating_peer,
+                on_ev_error,
+                on_ev_veilid_message,
+                on_ev_connected_peer,
+                on_ev_change_counter,
+            ),
+        )
+        .run();
+}
 
-## Using the workflows in your own project
+```
 
-If you would like to use the GitHub workflows included here for your own project, there are a few things you might have to adapt:
+### 3. Connect to systems
 
-1. The release workflow relies on the `index.html` file under `/wasm` for web builds
-2. Make sure that the env variable `binary` ([release.yaml](.github/workflows/release.yaml#L10)) matches the name of your binary
-3. In case your project doesn't have an `assets` folder
-   1. Either create one and put a `.gitkeep` file in it to be able to push it
-   2. Or remove the `cp -r assets` statements in the build jobs
-4. Adapt the used toolchain if you are using nightly
-5. In your GitHub repo's settings, under `Actions -> General` make sure "Read and Write permissions" is selected under "Workflow permissions" near the bottom. This fixes the error `Error: Resource not accessible by integration`.
+#### Events
 
+* EventConnectedPeer
+* EventError
+* EventAwaitingPeer
+* EventVeilidInitialized
+* EventReceiveMessage<SampleMessage>
+* EventSendMessage<SampleMessage>
+* EventMessageSent
 
-### Publish on itch.io
+#### Resources
 
-The release flow can be configured to push the releases to itch.io:
+`bevy_veilid` will inject this into bevy
 
-1. Create an API key in https://itch.io/user/settings/api-keys
-2. Go to the repository's Settings tab in GitHub, click on Secrets->Actions in the sidebar,and add a repository secret named `BUTLER_CREDENTIALS` set to the API key.
-3. Uncomment `env.itch_target` in `release.yaml` and set it to the itch.io username and the name of the game on itch.io, separated by a slash (`/`)
+```rust
+pub enum VeilidPluginStatus {
+    Initializing,
+    Initialized,
+    ConnectedPeer,
+    AwaitingPeer,
+    Error,
+}
+```
 
-Once that is done, any tag pushed to GitHub will trigger an itch.io release and use the tag as the [user version](https://itch.io/docs/butler/pushing.html#specifying-your-own-version-number).
+## 💻 Under the hood
 
-## License
+A full veilid instance will run in background with settings defined in [veilid_duplex](https://gitlab.com/cwiz/veilid_duplex). 
+`veilid_duplex` manages veilid internals and provides an API to send a message to another peer by refering each other with dht_keys unique for each run.
 
-Licensed under either of
-
-* Apache License, Version 2.0
-   ([LICENSE-APACHE-2.0](LICENSE-Apache-2.0) or <http://www.apache.org/licenses/LICENSE-2.0>)
-* MIT License
-   ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
-* CC0-1.0 License
-   ([LICENSE-CC0-1.0](LICENSE-CC0-1.0) or <https://creativecommons.org/publicdomain/zero/1.0/legalcode>)
-
-at your option.
-
-## Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
-triple licensed as above, without any additional terms or conditions.
