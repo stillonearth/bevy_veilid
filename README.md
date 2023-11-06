@@ -1,9 +1,9 @@
 # bevy_veilid
 
-[![Crates.io](https://img.shields.io/crates/v/bevy_rl.svg)](https://crates.io/crates/bevy_veilid)
+[![Crates.io](https://img.shields.io/crates/v/bevy_veilid.svg)](https://crates.io/crates/bevy_veilid)
 [![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
-[![Crates.io](https://img.shields.io/crates/d/bevy_rl.svg)](https://crates.io/crates/bevy_veilid)
-[![Rust](https://github.com/stillonearth/bevy_rl/workflows/CI/badge.svg)](https://github.com/stillonearth/bevy_veilid/actions)
+[![Crates.io](https://img.shields.io/crates/d/bevy_veilid.svg)](https://crates.io/crates/bevy_veilid)
+[![Rust](https://github.com/stillonearth/bevy_veilid/workflows/CI/badge.svg)](https://github.com/stillonearth/bevy_veilid/actions)
 
 ## Build 2-Player turn-based p2p games with Bevy and Veilid
 
