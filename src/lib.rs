@@ -3,6 +3,7 @@
 
 use std::marker::PhantomData;
 
+use anyhow::Error;
 use bevy::prelude::*;
 use bevy_tokio_tasks::*;
 use serde::de::DeserializeOwned;
@@ -20,10 +21,13 @@ pub use veilid_duplex;
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct VeilidApp(pub Option<VeilidDuplex>);
 
-// #[derive(Resource)]
-// pub struct VeilidDuplexMessageLog {
-//     pub uuids: Vec<Uuid>,
-// }
+#[derive(Resource, PartialEq, Eq)]
+pub enum VeilidPluginStatus {
+    Initializing,
+    ConnectedPeer,
+    AwaitingPeer,
+    Error,
+}
 
 // ------
 // Events
@@ -63,6 +67,60 @@ pub struct EventReceiveMessage<T> {
 
 #[derive(Event)]
 pub struct EventError;
+
+#[derive(Event)]
+pub struct EventAwaitingPeer;
+
+#[derive(Event)]
+pub struct EventConnectedPeer;
+
+#[derive(Event)]
+pub struct EventVeilidError(pub Error);
+
+// ---
+// Systems
+// ---
+
+fn on_ev_connected_peer(
+    mut reader: EventReader<EventConnectedPeer>,
+    mut veilid_plugin_status: ResMut<VeilidPluginStatus>,
+) {
+    for _ in reader.iter() {
+        *veilid_plugin_status = VeilidPluginStatus::ConnectedPeer;
+    }
+}
+
+fn on_ev_awaiting_peer(
+    mut reader: EventReader<EventAwaitingPeer>,
+    mut veilid_plugin_status: ResMut<VeilidPluginStatus>,
+) {
+    for _ in reader.iter() {
+        *veilid_plugin_status = VeilidPluginStatus::AwaitingPeer;
+    }
+}
+
+fn on_ev_error(
+    mut er_veilid_error: EventReader<EventVeilidError>,
+    mut veilid_plugin_status: ResMut<VeilidPluginStatus>,
+) {
+    for _ in er_veilid_error.iter() {
+        *veilid_plugin_status = VeilidPluginStatus::Error;
+    }
+}
+
+fn on_ev_veilid_message_sent(
+    mut er_veilid_message: EventReader<EventMessageSent>,
+    mut ew_connected_peer: EventWriter<EventConnectedPeer>,
+    veilid_plugin_status: Res<VeilidPluginStatus>,
+) {
+    if *veilid_plugin_status.into_inner() == VeilidPluginStatus::AwaitingPeer {
+        for _ in er_veilid_message.iter() {
+            ew_connected_peer.send(EventConnectedPeer);
+        }
+    }
+}
+
+// --
 
 fn initialize_veilid_app(runtime: ResMut<TokioTasksRuntime>) {
     runtime.spawn_background_task(|mut ctx| async move {
@@ -175,6 +233,15 @@ impl<T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + C
         app.add_systems(
             Update,
             (on_ev_send_message::<T>, event_on_veilid_initialized::<T>),
+        );
+        app.add_systems(
+            Update,
+            (
+                on_ev_connected_peer,
+                on_ev_awaiting_peer,
+                on_ev_error,
+                on_ev_veilid_message_sent,
+            ),
         );
         app.add_event::<VeilidInitializedEvent>();
         app.add_event::<EventError>();
