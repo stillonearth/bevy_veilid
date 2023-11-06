@@ -64,11 +64,7 @@ pub struct EventReceiveMessage<T> {
 #[derive(Event)]
 pub struct EventError;
 
-fn initialize_veilid_app<
-    T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + Clone + 'static,
->(
-    runtime: ResMut<TokioTasksRuntime>,
-) {
+fn initialize_veilid_app(runtime: ResMut<TokioTasksRuntime>) {
     runtime.spawn_background_task(|mut ctx| async move {
         let result = VeilidDuplex::new().await;
         if result.is_err() {
@@ -139,7 +135,7 @@ fn on_ev_send_message<
 
         let app_message: AppMessage<T> = AppMessage {
             data: e.message.clone(),
-            dht_record: origin_dht_key.clone(),
+            dht_record: origin_dht_key,
         };
         let message_uuid = e.uuid;
 
@@ -175,7 +171,7 @@ impl<T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + C
 {
     fn build(&self, app: &mut App) {
         app.init_resource::<VeilidApp>();
-        app.add_systems(Startup, initialize_veilid_app::<T>);
+        app.add_systems(Startup, initialize_veilid_app);
         app.add_systems(
             Update,
             (on_ev_send_message::<T>, event_on_veilid_initialized::<T>),

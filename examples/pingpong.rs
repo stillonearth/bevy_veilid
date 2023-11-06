@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use tracing::info;
-use tracing_subscriber::filter::EnvFilter;
+
+
 
 use belly::prelude::*;
 use bevy::prelude::*;
@@ -8,7 +8,7 @@ use bevy_veilid::*;
 
 use anyhow::Error;
 use copypasta::*;
-use uuid::Uuid;
+
 use veilid_duplex::utils::crypto_key_from_str;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
