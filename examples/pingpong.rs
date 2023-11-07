@@ -122,7 +122,7 @@ fn handle_ui_state(
     veilid_plugin_status: Res<VeilidPluginStatus>,
     message: Res<SampleMessage>,
 ) {
-    let plugin_status = veilid_plugin_status.into_inner().clone();
+    let plugin_status = *veilid_plugin_status.into_inner();
     for mut vd in view_data.iter_mut() {
         vd.counter = message.counter;
         if plugin_status == VeilidPluginStatus::Initialized {
