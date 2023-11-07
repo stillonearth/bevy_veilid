@@ -10,6 +10,12 @@
 This plugin makes it bearable to build p2p games with Bevy and Veilid by providing a sane API 
 for encrypted p2p messanging in Bevy context.
 
+
+
+https://github.com/stillonearth/bevy_veilid/assets/97428129/4c505eef-1dee-4ab4-b0e7-51262a3b3337
+
+
+
 ## Compatibility
 
 | bevy version | veilid version | bevy_veilid version |
@@ -94,3 +100,7 @@ pub enum VeilidPluginStatus {
 A full veilid instance will run in background with settings defined in [veilid_duplex](https://gitlab.com/cwiz/veilid_duplex). 
 `veilid_duplex` manages veilid internals and provides an API to send a message to another peer by refering each other with dht_keys unique for each run.
 
+## Examples
+
+1. [passing message with increment / decriment](https://github.com/stillonearth/bevy_veilid/blob/main/examples/pingpong.rs)
+2. WIP [checkers on bevy]([https://github.com/stillonearth/CheckersOnBevy](https://github.com/stillonearth/CheckersOnBevy/tree/p2p)https://github.com/stillonearth/CheckersOnBevy/tree/p2p)
