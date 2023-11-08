@@ -21,7 +21,6 @@ https://github.com/stillonearth/bevy_veilid/assets/97428129/4c505eef-1dee-4ab4-b
 | bevy version | veilid version | bevy_veilid version |
 | ------------ | :-------------:| :-----------------: |
 | 0.11         |   0.2.4        | 0.1.0               |
-| 0.12         |   0.2.4        | 0.1.1               |
 
 ## 📝Features
 
