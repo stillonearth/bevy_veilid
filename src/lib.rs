@@ -268,5 +268,6 @@ impl<T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + C
         app.add_event::<EventReceiveMessage<T>>();
         app.add_event::<EventSendMessage<T>>();
         app.add_event::<EventMessageSent>();
+        app.insert_resource(VeilidPluginStatus::Initializing);
     }
 }

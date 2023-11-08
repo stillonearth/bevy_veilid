@@ -15,6 +15,7 @@ for encrypted p2p messanging in Bevy context.
 | bevy version | veilid version | bevy_veilid version |
 | ------------ | :-------------:| :-----------------: |
 | 0.11         |   0.2.4        | 0.1.0               |
+| 0.12         |   0.2.4        | 0.1.1               |
 
 ## 📝Features
 
