@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "bevy_veilid"
-version = "0.1.1"
+version = "0.1.2"
 license = "Apache-2.0"
 description = "Build turn-based p2p games with Veilid "
 keywords = ["veilid", "bevy", "p2p", "turnbased"]
@@ -15,7 +15,7 @@ opt-level = 3
 
 [dependencies]
 bevy = "0.11"
-veilid_duplex = "0.1.1"
+veilid_duplex = "0.1.2"
 bevy-tokio-tasks = "0.11"
 serde = { version = "1.0.188", features= ["derive"] }
 anyhow = "1.0.72"
