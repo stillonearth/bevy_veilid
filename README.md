@@ -104,4 +104,4 @@ A full veilid instance will run in background with settings defined in [veilid_d
 ## Examples
 
 1. [passing message with increment / decriment](https://github.com/stillonearth/bevy_veilid/blob/main/examples/pingpong.rs)
-2. WIP [checkers on bevy]([https://github.com/stillonearth/CheckersOnBevy](https://github.com/stillonearth/CheckersOnBevy/tree/p2p)https://github.com/stillonearth/CheckersOnBevy/tree/p2p)
+2. [checkers on bevy]([https://github.com/stillonearth/CheckersOnBevy](https://github.com/stillonearth/CheckersOnBevy/)https://github.com/stillonearth/CheckersOnBevy)
