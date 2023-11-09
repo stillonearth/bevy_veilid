@@ -277,6 +277,7 @@ fn on_host_game(
         let mut ctx = ClipboardContext::new().unwrap();
         let msg = format!("{}", va.our_dht_key);
         ctx.set_contents(msg.to_owned()).unwrap();
+        ctx.get_contents().unwrap();
         // send event
         ew_awaiting_peer.send(EventAwaitingPeer);
     }
