@@ -5,7 +5,12 @@ use std::marker::PhantomData;
 
 use anyhow::Error;
 use bevy::prelude::*;
+
+#[cfg(not(target_arch = "wasm32"))]
 use bevy_tokio_tasks::*;
+#[cfg(target_arch = "wasm32")]
+use bevy_wasm_tasks::*;
+
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use uuid::Uuid;
@@ -13,6 +18,18 @@ use veilid_duplex::veilid::*;
 use veilid_duplex::veilid_core::*;
 
 pub use veilid_duplex;
+
+#[cfg(target_arch = "wasm32")]
+type TasksPlugin = WASMTasksPlugin;
+
+#[cfg(target_arch = "wasm32")]
+type TasksRutime = WASMTasksRuntime;
+
+#[cfg(not(target_arch = "wasm32"))]
+type TasksPlugin = TokioTasksPlugin;
+
+#[cfg(not(target_arch = "wasm32"))]
+type TasksRutime = TokioTasksRuntime;
 
 // ------
 // Resources
@@ -91,7 +108,7 @@ fn on_ev_connected_peer(
     mut veilid_plugin_status: ResMut<VeilidPluginStatus>,
     mut veilid_app: ResMut<VeilidApp>,
 ) {
-    for e in reader.iter() {
+    for e in reader.read() {
         *veilid_plugin_status = VeilidPluginStatus::ConnectedPeer;
         veilid_app.other_peer_dht = Some(e.dht_key);
     }
@@ -101,7 +118,7 @@ fn on_ev_awaiting_peer(
     mut reader: EventReader<EventAwaitingPeer>,
     mut veilid_plugin_status: ResMut<VeilidPluginStatus>,
 ) {
-    for _ in reader.iter() {
+    for _ in reader.read() {
         *veilid_plugin_status = VeilidPluginStatus::AwaitingPeer;
     }
 }
@@ -110,7 +127,7 @@ fn on_ev_error(
     mut er_veilid_error: EventReader<EventError>,
     mut veilid_plugin_status: ResMut<VeilidPluginStatus>,
 ) {
-    for _ in er_veilid_error.iter() {
+    for _ in er_veilid_error.read() {
         *veilid_plugin_status = VeilidPluginStatus::Error;
     }
 }
@@ -121,7 +138,7 @@ fn on_ev_veilid_message_sent(
     veilid_plugin_status: Res<VeilidPluginStatus>,
 ) {
     if *veilid_plugin_status.into_inner() == VeilidPluginStatus::AwaitingPeer {
-        for m in er_veilid_message.iter() {
+        for m in er_veilid_message.read() {
             ew_connected_peer.send(EventConnectedPeer { dht_key: m.dht_key });
         }
     }
@@ -129,7 +146,7 @@ fn on_ev_veilid_message_sent(
 
 // --
 
-fn initialize_veilid_app(runtime: ResMut<TokioTasksRuntime>) {
+fn initialize_veilid_app(runtime: ResMut<TasksRutime>) {
     runtime.spawn_background_task(|mut ctx| async move {
         let result = VeilidDuplex::new().await;
         if result.is_err() {
@@ -158,12 +175,12 @@ fn initialize_veilid_app(runtime: ResMut<TokioTasksRuntime>) {
 fn event_on_veilid_initialized<
     T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + Clone + 'static,
 >(
-    runtime: ResMut<TokioTasksRuntime>,
+    runtime: ResMut<TasksRutime>,
     mut veilid_plugin_status: ResMut<VeilidPluginStatus>,
     mut e_veilid_initialized: EventReader<EventVeilidInitialized>,
     veilid_app: Res<VeilidApp>,
 ) {
-    for _e in e_veilid_initialized.iter() {
+    for _e in e_veilid_initialized.read() {
         *veilid_plugin_status = VeilidPluginStatus::Initialized;
         let mut veilid_app = veilid_app.app.clone().unwrap();
         runtime.spawn_background_task(|mut ctx| async move {
@@ -191,7 +208,7 @@ fn on_ev_send_message<
     mut er_send_message: EventReader<EventSendMessage<T>>,
     mut ew_awaiting_peer: EventWriter<EventAwaitingPeer>,
     veilid_app: Res<VeilidApp>,
-    runtime: ResMut<TokioTasksRuntime>,
+    runtime: ResMut<TasksRutime>,
 ) {
     if veilid_app.app.is_none() {
         return;
@@ -200,7 +217,7 @@ fn on_ev_send_message<
     let veilid_app = veilid_app.app.clone().unwrap();
     let origin_dht_key = veilid_app.our_dht_key;
 
-    for e in er_send_message.iter() {
+    for e in er_send_message.read() {
         let veilid_app = veilid_app.clone();
         let destination_dht_key = e.dht_key;
 
@@ -245,7 +262,8 @@ impl<T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + C
     Plugin for VeilidPlugin<T>
 {
     fn build(&self, app: &mut App) {
-        app.add_plugins(bevy_tokio_tasks::TokioTasksPlugin::default());
+        app.add_plugins(TasksPlugin::default());
+
         app.init_resource::<VeilidApp>();
         app.add_systems(Startup, initialize_veilid_app);
         app.add_systems(
