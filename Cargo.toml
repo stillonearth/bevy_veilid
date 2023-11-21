@@ -34,3 +34,6 @@ features = [
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]
 
+
+[dev-dependencies]
+belly = {git="https://github.com/jkb0o/belly.git", rev="800fbc0"}
