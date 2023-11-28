@@ -212,7 +212,7 @@ fn event_on_veilid_initialized<
                 })
                 .await;
             };
-            // let _ = veilid_app.network_loop(on_app_message).await;
+            let _ = veilid_app.network_loop(on_app_message).await;
         });
     }
 }

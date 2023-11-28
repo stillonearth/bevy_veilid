@@ -18,8 +18,8 @@ bevy = "0.12"
 serde = { version = "1.0.188", features= ["derive"] }
 anyhow = "1.0.72"
 copypasta = "0.10"
-# veilid_duplex = "0.1.5"
-veilid_duplex={path="../veilid_duplex"}
+veilid_duplex = "0.1.5"
+# veilid_duplex={path="../veilid_duplex"}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 bevy-tokio-tasks = {git="https://github.com/foxzool/bevy-tokio-tasks", rev="b12e1d0"}
