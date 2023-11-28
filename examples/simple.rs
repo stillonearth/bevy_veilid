@@ -56,19 +56,18 @@ impl Default for UIState {
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-    let view_data = UIState::default();
-    let label1 = commands.spawn_empty().insert(view_data.clone()).id();
-    let label2 = commands.spawn_empty().insert(view_data.clone()).id();
-    let label3: Entity = commands.spawn_empty().insert(view_data.clone()).id();
+    // let view_data = UIState::default();
+    // let label1 = commands.spawn_empty().insert(view_data.clone()).id();
+    // let label2 = commands.spawn_empty().insert(view_data.clone()).id();
+    // let label3: Entity = commands.spawn_empty().insert(view_data.clone()).id();
 }
 
-fn handle_ui_state(
-    mut view_data: Query<&mut UIState>,
-    veilid_plugin_status: Res<VeilidPluginStatus>,
-    message: Res<SampleMessage>,
+fn handle_ui_state(// mut view_data: Query<&mut UIState>,
+    // veilid_plugin_status: Res<VeilidPluginStatus>,
+    // message: Res<SampleMessage>,
 ) {
-    let plugin_status = *veilid_plugin_status.into_inner();
-    for mut vd in view_data.iter_mut() {}
+    // let plugin_status = *veilid_plugin_status.into_inner();
+    // for mut vd in view_data.iter_mut() {}
 }
 
 // ---
@@ -80,14 +79,14 @@ fn on_ev_veilid_initialized(
     veilid_app: Res<VeilidApp>,
     mut view_data: Query<&mut UIState>,
 ) {
-    for _ in er_world_initialized.iter() {
+    for _ in er_world_initialized.read() {
         let va = veilid_app.app.clone().unwrap();
         let status = format!("Veilid initialized!, dht_key: {}", va.our_dht_key);
         for mut vd in view_data.iter_mut() {
             vd.titlebar_text = status.clone();
         }
 
-        println!("{}", status);
+        info!("{}", status);
     }
 }
 
@@ -95,7 +94,7 @@ fn on_ev_awating_peer(
     mut er_awaiting_peer: EventReader<EventAwaitingPeer>,
     mut view_data: Query<&mut UIState>,
 ) {
-    for _ in er_awaiting_peer.iter() {
+    for _ in er_awaiting_peer.read() {
         // change ui state
         for mut vd in view_data.iter_mut() {
             vd.error_text = "".to_string();
@@ -110,7 +109,7 @@ fn on_ev_connected_peer(
     mut er_awaiting_peer: EventReader<EventConnectedPeer>,
     mut view_data: Query<&mut UIState>,
 ) {
-    for _ in er_awaiting_peer.iter() {
+    for _ in er_awaiting_peer.read() {
         // change ui state
         for mut vd in view_data.iter_mut() {
             vd.titlebar_text = "Peer connected".to_string();
@@ -120,7 +119,7 @@ fn on_ev_connected_peer(
 }
 
 fn on_ev_error(mut er_veilid_error: EventReader<EventError>, mut view_data: Query<&mut UIState>) {
-    for e in er_veilid_error.iter() {
+    for e in er_veilid_error.read() {
         for mut d in view_data.iter_mut() {
             d.error_text = format!("{}", e.0);
             println!("{}", d.error_text);
@@ -133,7 +132,7 @@ fn on_ev_veilid_message(
     mut ew_connected_peer: EventWriter<EventConnectedPeer>,
     mut message: ResMut<SampleMessage>,
 ) {
-    for vm in er_veilid_message.iter() {
+    for vm in er_veilid_message.read() {
         if vm.message.extra == "START" {
             ew_connected_peer.send(EventConnectedPeer {
                 dht_key: vm.dht_key,
@@ -151,7 +150,7 @@ fn on_ev_change_counter(
     mut ew_send_message: EventWriter<EventSendMessage<SampleMessage>>,
     veilid_app: Res<VeilidApp>,
 ) {
-    for e in er_change_counter.iter() {
+    for e in er_change_counter.read() {
         message.counter += e.delta;
         // update viewdata
         for mut vd in view_data.iter_mut() {
@@ -180,7 +179,7 @@ fn on_join_game(
     mut ew_veilid_error: EventWriter<EventError>,
     mut ew_awaiting_peer: EventWriter<EventAwaitingPeer>,
 ) {
-    for _ in er_host_game.iter() {
+    for _ in er_host_game.read() {
         // paste to clipboard
         let mut ctx = ClipboardContext::new().unwrap();
         let dht_key = ctx.get_contents().unwrap();
@@ -209,7 +208,7 @@ fn on_host_game(
     mut er_host_game: EventReader<EventHostGame>,
     mut ew_awaiting_peer: EventWriter<EventAwaitingPeer>,
 ) {
-    for _ in er_host_game.iter() {
+    for _ in er_host_game.read() {
         let va = veilid_app.app.clone().unwrap();
         // copy to clipboard
         let mut ctx = ClipboardContext::new().unwrap();
@@ -222,6 +221,8 @@ fn on_host_game(
 }
 
 fn main() {
+    info!("I'm a debug!");
+
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(VeilidPlugin::<SampleMessage>::default())

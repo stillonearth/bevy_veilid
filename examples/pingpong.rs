@@ -7,6 +7,9 @@ use bevy_veilid::*;
 use copypasta::*;
 use veilid_duplex::utils::crypto_key_from_str;
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
 // ---
 // Events
 // ---
@@ -96,7 +99,7 @@ fn setup(mut commands: Commands) {
                     </button>
                 </div>
                 <div class="extra_buttons hidden">
-                    <button on:press=|ctx| {ctx.send_event(EventJoinGame)}>
+                    <button on:press=|ctx| {ctx.send_event(EventReadFromClipboard)}>
                         "Paste DHT key from clipboard and join a game"
                     </button>
                 </div>
@@ -237,15 +240,16 @@ fn on_ev_change_counter(
 // ---
 
 fn on_join_game(
-    mut er_host_game: EventReader<EventJoinGame>,
+    mut er_read_from_clipboard: EventReader<EventReadFromClipboardDone>,
     mut ew_send_message: EventWriter<EventSendMessage<SampleMessage>>,
     mut ew_veilid_error: EventWriter<EventError>,
     mut ew_awaiting_peer: EventWriter<EventAwaitingPeer>,
+    runtime: ResMut<TasksRutime>,
 ) {
-    for _ in er_host_game.iter() {
+    for e in er_read_from_clipboard.read() {
         // paste to clipboard
-        let mut ctx = ClipboardContext::new().unwrap();
-        let dht_key = ctx.get_contents().unwrap();
+        let dht_key = e.0.clone();
+        info!("Pasted DHT key: {}", dht_key);
         let dht_key = crypto_key_from_str(dht_key);
 
         // send error event if input isn't ok
@@ -263,6 +267,8 @@ fn on_join_game(
         ));
         // send EventAwaitingPeer
         ew_awaiting_peer.send(EventAwaitingPeer);
+
+        break;
     }
 }
 
@@ -270,16 +276,15 @@ fn on_host_game(
     veilid_app: Res<VeilidApp>,
     mut er_host_game: EventReader<EventHostGame>,
     mut ew_awaiting_peer: EventWriter<EventAwaitingPeer>,
+    runtime: ResMut<TasksRutime>,
 ) {
-    for _ in er_host_game.iter() {
+    for _ in er_host_game.read() {
         let va = veilid_app.app.clone().unwrap();
-        // copy to clipboard
-        let mut ctx = ClipboardContext::new().unwrap();
-        let msg = format!("{}", va.our_dht_key);
-        ctx.set_contents(msg.to_owned()).unwrap();
-        ctx.get_contents().unwrap();
+
+        copy_to_clipboard(va.our_dht_key.to_string(), runtime);
         // send event
         ew_awaiting_peer.send(EventAwaitingPeer);
+        break;
     }
 }
 

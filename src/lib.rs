@@ -7,9 +7,18 @@ use anyhow::Error;
 use bevy::prelude::*;
 
 #[cfg(not(target_arch = "wasm32"))]
+use copypasta::*;
+
+#[cfg(not(target_arch = "wasm32"))]
 use bevy_tokio_tasks::*;
 #[cfg(target_arch = "wasm32")]
 use bevy_wasm_tasks::*;
+
+#[cfg(target_arch = "wasm32")]
+use futures::executor::block_on;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsValue;
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -23,13 +32,13 @@ pub use veilid_duplex;
 type TasksPlugin = WASMTasksPlugin;
 
 #[cfg(target_arch = "wasm32")]
-type TasksRutime = WASMTasksRuntime;
+pub type TasksRutime = WASMTasksRuntime;
 
 #[cfg(not(target_arch = "wasm32"))]
 type TasksPlugin = TokioTasksPlugin;
 
 #[cfg(not(target_arch = "wasm32"))]
-type TasksRutime = TokioTasksRuntime;
+pub type TasksRutime = TokioTasksRuntime;
 
 // ------
 // Resources
@@ -56,6 +65,12 @@ pub enum VeilidPluginStatus {
 
 #[derive(Event)]
 pub struct EventVeilidInitialized;
+
+#[derive(Event)]
+pub struct EventReadFromClipboardDone(pub String);
+
+#[derive(Event)]
+pub struct EventReadFromClipboard;
 
 #[derive(Event)]
 pub struct EventSendMessage<T> {
@@ -197,7 +212,7 @@ fn event_on_veilid_initialized<
                 })
                 .await;
             };
-            let _ = veilid_app.network_loop(on_app_message).await;
+            // let _ = veilid_app.network_loop(on_app_message).await;
         });
     }
 }
@@ -279,6 +294,8 @@ impl<T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + C
                 on_ev_veilid_message_sent,
             ),
         );
+        // Clipboard QoL
+        app.add_systems(Update, on_read_from_clipboard);
         app.add_event::<EventConnectedPeer>();
         app.add_event::<EventError>();
         app.add_event::<EventAwaitingPeer>();
@@ -286,6 +303,71 @@ impl<T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + C
         app.add_event::<EventReceiveMessage<T>>();
         app.add_event::<EventSendMessage<T>>();
         app.add_event::<EventMessageSent>();
+        app.add_event::<EventReadFromClipboardDone>();
+        app.add_event::<EventReadFromClipboard>();
         app.insert_resource(VeilidPluginStatus::Initializing);
+    }
+}
+
+// -----
+// Utils
+// -----
+
+#[cfg(target_arch = "wasm32")]
+pub fn copy_to_clipboard(value: String, runtime: ResMut<TasksRutime>) {
+    runtime.spawn_background_task(|mut ctx| async move {
+        let window = web_sys::window().unwrap();
+        let promise = window
+            .navigator()
+            .clipboard()
+            .unwrap()
+            .write_text(value.as_str());
+
+        let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+    });
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn copy_to_clipboard(value: String, runtime: ResMut<TasksRutime>) {
+    // copy to clipboard
+    let mut ctx = ClipboardContext::new().unwrap();
+    let msg = format!("{}", value);
+    ctx.set_contents(msg.to_owned()).unwrap();
+    ctx.get_contents().unwrap();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn on_read_from_clipboard(
+    mut ew: EventWriter<EventReadFromClipboardDone>,
+    mut er: EventReader<EventReadFromClipboard>,
+) {
+    for _ in er.read() {
+        let mut ctx = ClipboardContext::new().unwrap();
+        let dht_key = ctx.get_contents().unwrap();
+
+        ew.send(EventReadFromClipboardDone(dht_key.clone()));
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn on_read_from_clipboard(
+    runtime: ResMut<TasksRutime>,
+    mut ew: EventWriter<EventReadFromClipboardDone>,
+    mut er: EventReader<EventReadFromClipboard>,
+) {
+    for _ in er.read() {
+        runtime.spawn_background_task(|mut ctx| async move {
+            let window = web_sys::window().unwrap();
+            let promise = window.navigator().clipboard().unwrap().read_text();
+
+            let result = wasm_bindgen_futures::JsFuture::from(promise).await.unwrap();
+            let result = result.as_string().unwrap();
+
+            ctx.run_on_main_thread(move |ctx| {
+                let world = ctx.world;
+                world.send_event(EventReadFromClipboardDone(result));
+            })
+            .await;
+        });
     }
 }
