@@ -4,7 +4,6 @@ use belly::prelude::*;
 use bevy::prelude::*;
 use bevy_veilid::*;
 
-use copypasta::*;
 use veilid_duplex::utils::crypto_key_from_str;
 
 #[cfg(target_arch = "wasm32")]

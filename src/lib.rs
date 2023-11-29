@@ -190,13 +190,15 @@ fn initialize_veilid_app(runtime: ResMut<TasksRutime>) {
 fn event_on_veilid_initialized<
     T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + Clone + 'static,
 >(
-    runtime: ResMut<TasksRutime>,
     mut veilid_plugin_status: ResMut<VeilidPluginStatus>,
     mut e_veilid_initialized: EventReader<EventVeilidInitialized>,
+    runtime: ResMut<TasksRutime>,
     veilid_app: Res<VeilidApp>,
 ) {
     for _e in e_veilid_initialized.read() {
         *veilid_plugin_status = VeilidPluginStatus::Initialized;
+        return;
+
         let mut veilid_app = veilid_app.app.clone().unwrap();
         runtime.spawn_background_task(|mut ctx| async move {
             let on_app_message = async move |message: AppMessage<T>| {
@@ -214,7 +216,38 @@ fn event_on_veilid_initialized<
             };
             let _ = veilid_app.network_loop(on_app_message).await;
         });
+        break;
     }
+}
+
+fn veilid_network_loop_cycle<
+    T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + Clone + 'static,
+>(
+    runtime: ResMut<TasksRutime>,
+    veilid_plugin_status: Res<VeilidPluginStatus>,
+    veilid_app: Res<VeilidApp>,
+) {
+    if *veilid_plugin_status.into_inner() == VeilidPluginStatus::Initializing {
+        return;
+    }
+
+    let mut veilid_app = veilid_app.app.clone().unwrap();
+    runtime.spawn_background_task(|mut ctx| async move {
+        let on_app_message = async move |message: AppMessage<T>| {
+            let message = message.clone();
+
+            ctx.run_on_main_thread(move |ctx| {
+                let world = ctx.world;
+
+                world.send_event(EventReceiveMessage {
+                    message: message.data,
+                    dht_key: message.dht_record,
+                });
+            })
+            .await;
+        };
+        let _ = veilid_app.network_loop_cycle(on_app_message).await;
+    });
 }
 
 fn on_ev_send_message<
@@ -283,7 +316,11 @@ impl<T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + C
         app.add_systems(Startup, initialize_veilid_app);
         app.add_systems(
             Update,
-            (on_ev_send_message::<T>, event_on_veilid_initialized::<T>),
+            (
+                on_ev_send_message::<T>,
+                event_on_veilid_initialized::<T>,
+                veilid_network_loop_cycle::<T>,
+            ),
         );
         app.add_systems(
             Update,
@@ -328,7 +365,7 @@ pub fn copy_to_clipboard(value: String, runtime: ResMut<TasksRutime>) {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn copy_to_clipboard(value: String, runtime: ResMut<TasksRutime>) {
+pub fn copy_to_clipboard(value: String, _: ResMut<TasksRutime>) {
     // copy to clipboard
     let mut ctx = ClipboardContext::new().unwrap();
     let msg = format!("{}", value);
