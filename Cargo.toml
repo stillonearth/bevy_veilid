@@ -20,16 +20,6 @@ anyhow = "1.0.72"
 copypasta = "0.10"
 veilid_duplex = "0.2"
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-bevy-tokio-tasks = {git="https://github.com/foxzool/bevy-tokio-tasks", rev="7de4b86"}
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy-wasm-tasks = {git="https://github.com/tekacs/bevy-wasm-tasks", rev="aa90d4e"}
-wasm-bindgen = { version = "0.2" }
-wasm-bindgen-futures = { version = "0.4" }
-web-sys = { version = "0.3", features = ["Clipboard"] }
-futures = "0.3.29"
-
 [dependencies.uuid]
 version = "1.5.0"
 features = [
