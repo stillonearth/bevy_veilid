@@ -221,8 +221,6 @@ fn on_host_game(
 }
 
 fn main() {
-    info!("I'm a debug!");
-
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(VeilidPlugin::<SampleMessage>::default())

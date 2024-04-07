@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "bevy_veilid"
-version = "0.2.0"
+version = "0.3.0"
 license = "Apache-2.0"
 description = "Build turn-based p2p games with Veilid "
 keywords = ["veilid", "bevy", "p2p", "turnbased"]
@@ -18,13 +18,13 @@ bevy = "0.13"
 serde = { version = "1.0.188", features= ["derive"] }
 anyhow = "1.0.72"
 copypasta = "0.10"
-veilid_duplex = "0.1.6"
+veilid_duplex = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 bevy-tokio-tasks = {git="https://github.com/foxzool/bevy-tokio-tasks", rev="7de4b86"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy-wasm-tasks = {git="https://github.com/tekacs/bevy-wasm-tasks", rev="0af2d9f"}
+bevy-wasm-tasks = {git="https://github.com/tekacs/bevy-wasm-tasks", rev="aa90d4e"}
 wasm-bindgen = { version = "0.2" }
 wasm-bindgen-futures = { version = "0.4" }
 web-sys = { version = "0.3", features = ["Clipboard"] }
@@ -37,7 +37,3 @@ features = [
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]
-
-
-[dev-dependencies]
-belly = {git="https://github.com/jkb0o/belly.git", rev="800fbc0"}

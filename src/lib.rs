@@ -197,7 +197,6 @@ fn event_on_veilid_initialized<
 ) {
     for _e in e_veilid_initialized.read() {
         *veilid_plugin_status = VeilidPluginStatus::Initialized;
-        return;
 
         let mut veilid_app = veilid_app.app.clone().unwrap();
         runtime.spawn_background_task(|mut ctx| async move {

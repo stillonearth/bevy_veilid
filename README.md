@@ -7,10 +7,7 @@
 
 ## Build 2-Player turn-based p2p games with Bevy and Veilid
 
-This plugin makes it bearable to build p2p games with Bevy and Veilid by providing a sane API 
-for encrypted p2p messanging in Bevy context.
-
-
+Build p2p turn-based games with anonimity for both clients with help of Veilid.
 
 https://github.com/stillonearth/bevy_veilid/assets/97428129/4c505eef-1dee-4ab4-b0e7-51262a3b3337
 
@@ -22,7 +19,7 @@ https://github.com/stillonearth/bevy_veilid/assets/97428129/4c505eef-1dee-4ab4-b
 | ------------ | :-------------:| :-----------------: |
 | 0.11         |   0.2.4        | 0.1.0               |
 | 0.11         |   0.2.5        | 0.1.2               |
-| 0.12         |   0.2.5        | `{git="https://github.com/stillonearth/bevy_veilid.git", rev="0c831b9"}`              |
+| 0.12         |   0.3          | 0.2                 |
 
 ## 📝Features
 
