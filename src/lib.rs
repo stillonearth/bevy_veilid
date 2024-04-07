@@ -6,8 +6,19 @@ use std::marker::PhantomData;
 use anyhow::Error;
 use bevy::prelude::*;
 
-use bevy_tokio_tasks::*;
+#[cfg(not(target_arch = "wasm32"))]
 use copypasta::*;
+
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_tokio_tasks::*;
+#[cfg(target_arch = "wasm32")]
+use bevy_wasm_tasks::*;
+
+#[cfg(target_arch = "wasm32")]
+use futures::executor::block_on;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsValue;
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -17,7 +28,16 @@ use veilid_duplex::veilid_core::*;
 
 pub use veilid_duplex;
 
+#[cfg(target_arch = "wasm32")]
+type TasksPlugin = WASMTasksPlugin;
+
+#[cfg(target_arch = "wasm32")]
+pub type TasksRutime = WASMTasksRuntime;
+
+#[cfg(not(target_arch = "wasm32"))]
 type TasksPlugin = TokioTasksPlugin;
+
+#[cfg(not(target_arch = "wasm32"))]
 pub type TasksRutime = TokioTasksRuntime;
 
 // ------
@@ -329,6 +349,20 @@ impl<T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + C
 // Utils
 // -----
 
+#[cfg(target_arch = "wasm32")]
+pub fn copy_to_clipboard(value: String, runtime: ResMut<TasksRutime>) {
+    runtime.spawn_background_task(|mut ctx| async move {
+        let window = web_sys::window().unwrap();
+        let promise = window
+            .navigator()
+            .clipboard()
+            .unwrap()
+            .write_text(value.as_str());
+
+        let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+    });
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub fn copy_to_clipboard(value: String, _: ResMut<TasksRutime>) {
     // copy to clipboard
@@ -348,5 +382,28 @@ fn on_read_from_clipboard(
         let dht_key = ctx.get_contents().unwrap();
 
         ew.send(EventReadFromClipboardDone(dht_key.clone()));
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn on_read_from_clipboard(
+    runtime: ResMut<TasksRutime>,
+    mut ew: EventWriter<EventReadFromClipboardDone>,
+    mut er: EventReader<EventReadFromClipboard>,
+) {
+    for _ in er.read() {
+        runtime.spawn_background_task(|mut ctx| async move {
+            let window = web_sys::window().unwrap();
+            let promise = window.navigator().clipboard().unwrap().read_text();
+
+            let result = wasm_bindgen_futures::JsFuture::from(promise).await.unwrap();
+            let result = result.as_string().unwrap();
+
+            ctx.run_on_main_thread(move |ctx| {
+                let world = ctx.world;
+                world.send_event(EventReadFromClipboardDone(result));
+            })
+            .await;
+        });
     }
 }
