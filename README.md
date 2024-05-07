@@ -73,13 +73,13 @@ fn main() {
 
 #### Events
 
-* EventConnectedPeer
-* EventError
-* EventAwaitingPeer
-* EventVeilidInitialized
-* EventReceiveMessage<SampleMessage>
-* EventSendMessage<SampleMessage>
-* EventMessageSent
+* `EventConnectedPeer`
+* `EventError`
+* `EventAwaitingPeer`
+* `EventVeilidInitialized`
+* `EventReceiveMessage<SampleMessage>`
+* `EventSendMessage<SampleMessage>`
+* `EventMessageSent`
 
 #### Resources
 
