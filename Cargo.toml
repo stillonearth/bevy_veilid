@@ -21,7 +21,7 @@ copypasta = "0.10"
 veilid_duplex = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-bevy-tokio-tasks = {path="./bevy-tokio-tasks"}
+bevy-tokio-tasks = {path="./bevy-tokio-tasks", version="0.13"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy-wasm-tasks = "0.13.0"
