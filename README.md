@@ -20,6 +20,7 @@ https://github.com/stillonearth/bevy_veilid/assets/97428129/4c505eef-1dee-4ab4-b
 | 0.11         |   0.2.4        | 0.1.0               |
 | 0.11         |   0.2.5        | 0.1.2               |
 | 0.12         |   0.3          | 0.2                 |
+| 0.13         |   0.3          | 0.3                 |
 
 ## 📝Features
 
