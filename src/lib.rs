@@ -10,7 +10,10 @@ use bevy::prelude::*;
 use copypasta::*;
 
 #[cfg(not(target_arch = "wasm32"))]
-use bevy_tokio_tasks::*;
+mod tokio_tasks;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio_tasks::*;
+
 #[cfg(target_arch = "wasm32")]
 use bevy_wasm_tasks::*;
 
