@@ -23,8 +23,10 @@ use futures::executor::block_on;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 
+use async_std::sync::Mutex;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::sync::Arc;
 use uuid::Uuid;
 use veilid_duplex::veilid::*;
 use veilid_duplex::veilid_core::*;
@@ -43,9 +45,9 @@ type TasksPlugin = TokioTasksPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 pub type TasksRutime = TokioTasksRuntime;
 
-// ------
+// ---------
 // Resources
-// ------
+// ---------
 
 #[derive(Resource, Default)]
 pub struct VeilidApp {
@@ -117,9 +119,9 @@ pub struct EventConnectedPeer {
 #[derive(Event)]
 pub struct EventError(pub Error);
 
-// ---
+// -------
 // Systems
-// ---
+// -------
 
 fn on_ev_connected_peer(
     mut reader: EventReader<EventConnectedPeer>,
@@ -162,8 +164,6 @@ fn on_ev_veilid_message_sent(
     }
 }
 
-// --
-
 fn initialize_veilid_app(runtime: ResMut<TasksRutime>) {
     runtime.spawn_background_task(|mut ctx| async move {
         let result = VeilidDuplex::new().await;
@@ -190,6 +190,50 @@ fn initialize_veilid_app(runtime: ResMut<TasksRutime>) {
     });
 }
 
+#[derive(Clone)]
+struct ChatAppLogic {
+    api: VeilidAPI,
+    our_dht_key: CryptoTyped<CryptoKey>,
+    routes: Arc<Mutex<VeilidDuplexRoutes>>,
+    routing_context: RoutingContext,
+    ctx: TaskContext,
+}
+
+impl ChatAppLogic {
+    pub fn new(app: VeilidDuplex, ctx: TaskContext) -> Self {
+        let our_dht_key = app.our_dht_key;
+
+        let api = app.api.clone();
+        let routing_context = app.routing_context.clone();
+        let routes = app.routes.clone();
+
+        Self {
+            api,
+            our_dht_key,
+            routes,
+            routing_context,
+            ctx,
+        }
+    }
+}
+
+impl<T: DeserializeOwned + Serialize + Sync + Send + Clone + 'static> AppLogic<T> for ChatAppLogic {
+    async fn on_message(&mut self, message: AppMessage<T>) {
+        let message = message.clone();
+
+        self.ctx
+            .run_on_main_thread(move |ctx| {
+                let world = ctx.world;
+
+                world.send_event(EventReceiveMessage {
+                    message: message.data,
+                    dht_key: message.dht_record,
+                });
+            })
+            .await;
+    }
+}
+
 fn event_on_veilid_initialized<
     T: DeserializeOwned + Serialize + std::marker::Sync + std::marker::Send + Clone + 'static,
 >(
@@ -203,20 +247,8 @@ fn event_on_veilid_initialized<
 
         let mut veilid_app = veilid_app.app.clone().unwrap();
         runtime.spawn_background_task(|mut ctx| async move {
-            let on_app_message = async move |message: AppMessage<T>| {
-                let message = message.clone();
-
-                ctx.run_on_main_thread(move |ctx| {
-                    let world = ctx.world;
-
-                    world.send_event(EventReceiveMessage {
-                        message: message.data,
-                        dht_key: message.dht_record,
-                    });
-                })
-                .await;
-            };
-            let _ = veilid_app.network_loop(on_app_message).await;
+            let app_logic = ChatAppLogic::new(veilid_app.clone(), ctx.clone());
+            let _ = veilid_app.network_loop::<T, ChatAppLogic>(app_logic).await;
         });
         break;
     }
@@ -235,20 +267,10 @@ fn veilid_network_loop_cycle<
 
     let mut veilid_app = veilid_app.app.clone().unwrap();
     runtime.spawn_background_task(|mut ctx| async move {
-        let on_app_message = async move |message: AppMessage<T>| {
-            let message = message.clone();
-
-            ctx.run_on_main_thread(move |ctx| {
-                let world = ctx.world;
-
-                world.send_event(EventReceiveMessage {
-                    message: message.data,
-                    dht_key: message.dht_record,
-                });
-            })
+        let app_logic = ChatAppLogic::new(veilid_app.clone(), ctx.clone());
+        let _ = veilid_app
+            .network_loop_cycle::<T, ChatAppLogic>(app_logic)
             .await;
-        };
-        let _ = veilid_app.network_loop_cycle(on_app_message).await;
     });
 }
 
@@ -299,9 +321,9 @@ fn on_ev_send_message<
     }
 }
 
-// ---
+// ------
 // Plugin
-// ---
+// ------
 
 #[derive(Default, Clone)]
 pub struct VeilidPlugin<

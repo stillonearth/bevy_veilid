@@ -14,17 +14,18 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = "0.13"
+bevy = "0.14"
 serde = { version = "1.0.188", features= ["derive"] }
 anyhow = "1.0.72"
 copypasta = "0.10"
-veilid_duplex = "0.2"
-bevy_app = "0.13.0"
-bevy_ecs = "0.13.0"
+veilid_duplex = "0.2.1"
+bevy_app = "0.14.0"
+bevy_ecs = "0.14.0"
 tokio = { version = "1", features = ["rt", "sync"] }
+async-std ="1.12"
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy-wasm-tasks = "0.13.0"
+# [target.'cfg(target_arch = "wasm32")'.dependencies]
+# bevy-wasm-tasks = "0.13.0" # todo update dependencies
 wasm-bindgen = { version = "0.2" }
 wasm-bindgen-futures = { version = "0.4" }
 web-sys = { version = "0.3", features = ["Clipboard"] }
@@ -39,10 +40,8 @@ features = [
 ]
 
 [dev-dependencies]
-bevy = { version = "0.13.0", default-features = false, features = ["bevy_core_pipeline", "bevy_asset", "bevy_render", "bevy_winit", "x11"] }
+bevy = { version = "0.14.0", default-features = false, features = ["bevy_core_pipeline", "bevy_asset", "bevy_render", "bevy_winit", "x11"] }
 tokio = { version = "1", features = ["time"] }
-
-belly = {git="https://github.com/jkb0o/belly.git", rev="7a1acb3"}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1", features = ["rt-multi-thread"] }
