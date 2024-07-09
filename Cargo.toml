@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "bevy_veilid"
-version = "0.3.0"
+version = "0.4.0"
 license = "Apache-2.0"
 description = "Build turn-based p2p games with Veilid "
 keywords = ["veilid", "bevy", "p2p", "turnbased"]
@@ -22,7 +22,6 @@ veilid_duplex = "0.2.1"
 bevy_app = "0.14.0"
 bevy_ecs = "0.14.0"
 tokio = { version = "1", features = ["rt", "sync"] }
-async-std ="1.12"
 
 # [target.'cfg(target_arch = "wasm32")'.dependencies]
 # bevy-wasm-tasks = "0.13.0" # todo update dependencies

@@ -23,10 +23,8 @@ use futures::executor::block_on;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 
-use async_std::sync::Mutex;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use std::sync::Arc;
 use uuid::Uuid;
 use veilid_duplex::veilid::*;
 use veilid_duplex::veilid_core::*;
@@ -192,28 +190,12 @@ fn initialize_veilid_app(runtime: ResMut<TasksRutime>) {
 
 #[derive(Clone)]
 struct ChatAppLogic {
-    api: VeilidAPI,
-    our_dht_key: CryptoTyped<CryptoKey>,
-    routes: Arc<Mutex<VeilidDuplexRoutes>>,
-    routing_context: RoutingContext,
     ctx: TaskContext,
 }
 
 impl ChatAppLogic {
-    pub fn new(app: VeilidDuplex, ctx: TaskContext) -> Self {
-        let our_dht_key = app.our_dht_key;
-
-        let api = app.api.clone();
-        let routing_context = app.routing_context.clone();
-        let routes = app.routes.clone();
-
-        Self {
-            api,
-            our_dht_key,
-            routes,
-            routing_context,
-            ctx,
-        }
+    pub fn new(ctx: TaskContext) -> Self {
+        Self { ctx }
     }
 }
 
@@ -246,8 +228,8 @@ fn event_on_veilid_initialized<
         *veilid_plugin_status = VeilidPluginStatus::Initialized;
 
         let mut veilid_app = veilid_app.app.clone().unwrap();
-        runtime.spawn_background_task(|mut ctx| async move {
-            let app_logic = ChatAppLogic::new(veilid_app.clone(), ctx.clone());
+        runtime.spawn_background_task(|ctx| async move {
+            let app_logic = ChatAppLogic::new(ctx.clone());
             let _ = veilid_app.network_loop::<T, ChatAppLogic>(app_logic).await;
         });
         break;
@@ -265,9 +247,14 @@ fn veilid_network_loop_cycle<
         return;
     }
 
-    let mut veilid_app = veilid_app.app.clone().unwrap();
-    runtime.spawn_background_task(|mut ctx| async move {
-        let app_logic = ChatAppLogic::new(veilid_app.clone(), ctx.clone());
+    let veilid_app = veilid_app.app.clone();
+    if veilid_app.is_none() {
+        return;
+    }
+    let mut veilid_app = veilid_app.unwrap();
+
+    runtime.spawn_background_task(|ctx| async move {
+        let app_logic = ChatAppLogic::new(ctx.clone());
         let _ = veilid_app
             .network_loop_cycle::<T, ChatAppLogic>(app_logic)
             .await;
